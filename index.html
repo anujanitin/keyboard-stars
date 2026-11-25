@@ -193,7 +193,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--surface-
       </div>
       <span class="starcount" style="font-size:1.3rem">★ <span id="meStars">0</span></span>
     </div>
-    <p class="muted">Pick a song. <b>Learn</b> stars come from step-by-step practice, <b>Play</b> stars from playing along with the falling notes.</p>
+    <p class="muted">Pick a song. <b>Learn</b> stars come from Step by step and Wait for me. <b>Play</b> stars come from Play along, where the notes keep moving.</p>
     <div class="songs" id="songGrid"></div>
   </section>
 
@@ -207,6 +207,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--surface-
     <div class="controls">
       <div class="seg" id="modeSeg" role="group" aria-label="Mode">
         <button type="button" data-mode="step">Step by step</button>
+        <button type="button" data-mode="wait">Wait for me</button>
         <button type="button" data-mode="play">Play along</button>
       </div>
       <div class="seg" id="partSeg" role="group" aria-label="Part of the song"></div>
@@ -556,8 +557,8 @@ function syncSeg(){
   document.querySelectorAll('#partSeg button').forEach(b=>b.setAttribute('aria-pressed', +b.dataset.part===P.part));
   document.querySelectorAll('#modeSeg button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.mode===P.mode));
   document.querySelectorAll('#speedSeg button').forEach(b=>b.setAttribute('aria-pressed', +b.dataset.speed===P.speed));
-  $('#playOnly').hidden = P.mode!=='play';
-  $('#stepView').hidden = P.mode!=='step'; $('#playView').hidden = P.mode!=='play';
+  $('#playOnly').hidden = P.mode==='step';
+  $('#stepView').hidden = P.mode!=='step'; $('#playView').hidden = P.mode==='step';
 }
 $('#partSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b||!P) return; P.part=+b.dataset.part; syncSeg(); resetRun(); });
 $('#modeSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b||!P) return; P.mode=b.dataset.mode; syncSeg(); resetRun(); });
@@ -643,21 +644,31 @@ function drawFall(){
 function startPlay(){
   stopAll(); const c = ac(); buildEvents(); P.evs.forEach(e=>e.state=null);
   P.spb = 60/(P.song.bpm*P.speed); const ci = countIn(); const lead = leadBeats()*P.spb;
-  P.hits=0; P.startAt = performance.now()/1000 + lead; P.running = true;
+  P.hits=0; P.mistakes=0; P.startAt = performance.now()/1000 + lead; P.running = true;
+  P.wait = P.mode==='wait'; P.now = -lead; P.last = performance.now()/1000; P.waiting = false;
   $('#goBtn').textContent='Stop';
   for(let i=0;i<ci.n;i++){ click(i*ci.beats*P.spb, i===0); P.timers.push(setTimeout(()=>{ $('#count').textContent = String(i+1); }, i*ci.beats*P.spb*1000)); }
   P.timers.push(setTimeout(()=>{ $('#count').textContent=''; }, lead*1000));
-  if(state.settings.guide && c){ P.guide = c.createGain(); P.guide.gain.value = midiAccess&&pianoState==='connected'?0.35:0.6; P.guide.connect(c.destination);
+  if(!P.wait && state.settings.guide && c){ P.guide = c.createGain(); P.guide.gain.value = midiAccess&&pianoState==='connected'?0.35:0.6; P.guide.connect(c.destination);
     P.evs.forEach(e=>tone(e.midi, lead + e.beat*P.spb, e.beats*P.spb*0.9, 0.2, P.guide)); }
   const loop = ()=>{
     if(!P.running) return;
-    P.now = performance.now()/1000 - P.startAt;
+    const real = performance.now()/1000;
+    if(!P.wait) P.now = real - P.startAt;
+    else {
+      const dt = Math.min(0.1, real - P.last);
+      const nx = P.evs.find(e=>!e.state);
+      if(nx && P.now + dt >= nx.beat*P.spb){ P.now = nx.beat*P.spb; P.waiting = true; }
+      else { P.now += dt; P.waiting = false; }
+    }
+    P.last = real;
     let tgt = [];
     let next = Infinity;
-    P.evs.forEach(e=>{ const t = e.beat*P.spb; if(!e.state && P.now > t+WIN){ e.state='miss'; } if(!e.state && t-P.now < 0.5 && t-P.now > -WIN){ if(t < next - 0.01){ next = t; tgt = [e.midi]; } else if(Math.abs(t-next) <= 0.01) tgt.push(e.midi); } });
+    P.evs.forEach(e=>{ const t = e.beat*P.spb; if(!P.wait && !e.state && P.now > t+WIN){ e.state='miss'; } if(!e.state && t-P.now < 0.5 && t-P.now > -WIN){ if(t < next - 0.01){ next = t; tgt = [e.midi]; } else if(Math.abs(t-next) <= 0.01) tgt.push(e.midi); } });
     setTargets(tgt);
     const done = P.evs.filter(e=>e.state).length;
-    $('#scoreline').textContent = `${P.hits} of ${P.evs.length} notes`;
+    const nxt = P.evs.find(e=>!e.state);
+    $('#scoreline').textContent = P.wait ? (P.waiting && nxt ? `Waiting for you: ${nxt.name}` : `${P.hits} of ${P.evs.length} notes`) : `${P.hits} of ${P.evs.length} notes`;
     drawFall();
     if(P.now > P.totalBeats*P.spb + 1 || (done===P.evs.length && P.now > P.totalBeats*P.spb)){ finishPlay(); return; }
     P.raf = requestAnimationFrame(loop);
@@ -665,15 +676,33 @@ function startPlay(){
   P.raf = requestAnimationFrame(loop);
 }
 function playInput(m){
-  const now = performance.now()/1000 - P.startAt;
+  const f = $('#flash');
+  if(P.wait){
+    const nx = P.evs.find(e=>!e.state);
+    if(!nx) return;
+    if(matches(m, nx.midi) && P.now >= nx.beat*P.spb - 0.6){
+      nx.state='hit'; P.hits++; P.now = Math.max(P.now, nx.beat*P.spb); P.waiting=false;
+      flashKey(keyMap.has(m)?m:nx.midi,'good'); f.style.color='var(--green)'; f.textContent='Yes!';
+    } else { P.mistakes++; flashKey(m,'bad'); f.style.color='var(--accent)'; f.textContent='Try '+nx.name; }
+    clearTimeout(P.flashT); P.flashT = setTimeout(()=>{ f.textContent=''; }, 700);
+    return;
+  }
+  const now = P.now;
   let bestE=null, bd=1e9;
   P.evs.forEach(e=>{ if(e.state||!matches(m,e.midi)) return; const d=Math.abs(e.beat*P.spb-now); if(d<=WIN && d<bd){bd=d;bestE=e;} });
-  const f = $('#flash');
   if(bestE){ bestE.state='hit'; P.hits++; flashKey(keyMap.has(m)?m:bestE.midi,'good'); f.style.color='var(--green)'; f.textContent = bd<0.15?'Perfect!':'Good!'; }
   else { flashKey(m,'bad'); f.style.color='var(--accent)'; f.textContent='Oops'; }
   clearTimeout(P.flashT); P.flashT = setTimeout(()=>{ f.textContent=''; }, 600);
 }
 function finishPlay(){
+  if(P.wait){
+    stopAll(); setTargets([]); drawFall();
+    const n = P.evs.length, mis = P.mistakes;
+    const stars = mis<=1 ? 3 : mis <= Math.max(2, Math.round(n*0.2)) ? 2 : 1;
+    record('step', stars);
+    showResult(stars, stars===3?'Perfect!':stars===2?'Great job!':'You did it!', (mis===0?'No mistakes at all.':`${mis} oops${mis===1?'':'es'}.`) + ' Ready for Play along?');
+    return;
+  }
   const pct = P.evs.length ? P.hits/P.evs.length : 0;
   stopAll(); setTargets([]); drawFall();
   const stars = pct>=0.9?3:pct>=0.65?2:pct>=0.3?1:0;
@@ -716,13 +745,13 @@ function showResult(stars, title, text){
   for(let i=0;i<3;i++) s.appendChild(el('span', i<stars?'on':'', '★'));
   $('#resTitle').textContent = title; $('#resText').textContent = text;
   const btns = $('#resBtns'); btns.textContent='';
-  const again = el('button','btn','↺ Again'); again.type='button'; again.onclick=()=>{ closeOverlay(); P.mode==='play'?startPlay():resetRun(); };
+  const again = el('button','btn','↺ Again'); again.type='button'; again.onclick=()=>{ closeOverlay(); P.mode==='step'?resetRun():startPlay(); };
   btns.appendChild(again);
   if(P.part>=0){
     const nextPart = P.part+1 < P.song.parts.length ? P.part+1 : -1;
     const nx = el('button','btn primary', nextPart<0?'Whole song →':'Part '+(nextPart+1)+' →'); nx.type='button';
     nx.onclick=()=>{ closeOverlay(); P.part=nextPart; syncSeg(); resetRun(); }; btns.appendChild(nx);
-  } else if(P.mode==='step'){
+  } else if(P.mode!=='play'){
     const pl = el('button','btn primary','Try Play along →'); pl.type='button'; pl.onclick=()=>{ closeOverlay(); P.mode='play'; syncSeg(); resetRun(); }; btns.appendChild(pl);
   }
   const done = el('button','btn ghost','Songs'); done.type='button'; done.onclick=()=>{ closeOverlay(); stopAll(); showSongs(); }; btns.appendChild(done);
