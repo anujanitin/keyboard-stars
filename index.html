@@ -120,7 +120,7 @@ button{cursor:pointer}
 .key.white{height:100%;background:var(--key-white);border:1px solid var(--key-white-edge);border-radius:0 0 10px 10px;color:var(--key-label);padding-bottom:10px;font-size:clamp(.9rem,2.4vw,1.5rem);z-index:1}
 .key.black{height:60%;background:var(--key-black);border-radius:0 0 7px 7px;color:#C9D1E3;font-size:clamp(.5rem,1.1vw,.72rem);padding-bottom:6px;z-index:2}
 .key .sticker{display:grid;place-items:center;min-width:1.6em;height:1.6em;border-radius:6px;border:1px solid #D9DEE8;background:#fff;color:#17203A}
-.key.black .sticker{border:0;background:transparent;color:#C9D1E3}
+.key.black .sticker{border:0;background:transparent;color:#C9D1E3;height:auto;line-height:1.15;text-align:center}
 .key.target{background:var(--glow);box-shadow:0 0 0 3px var(--gold) inset, 0 0 18px var(--glow)}
 .key.black.target{background:#E0A400}
 .key.down{filter:brightness(.88)}
@@ -272,7 +272,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--surface-
 
     <div class="card gsec">
       <h3>Edit songs</h3>
-      <p class="note">Write notes as letter + octave (middle C is <code>C4</code>). Add <code>-2</code> for a note that lasts 2 beats, <code>-0.5</code> for half a beat. Sharps are <code>F#4</code>. Split lyrics into syllables with hyphens (<code>twin-kle</code>); use <code>_</code> for a note with no word.</p>
+      <p class="note">Write notes as letter + octave (middle C is <code>C4</code>). Add <code>-2</code> for a note that lasts 2 beats, <code>-0.5</code> for half a beat. Sharps are <code>F#4</code>, flats are <code>Bb4</code>, and <code>R-1</code> is a rest of 1 beat. Split lyrics into syllables with hyphens (<code>twin-kle</code>); use <code>_</code> for a note with no word.</p>
       <div class="row" style="justify-content:flex-start"><select class="input" id="edSong" style="max-width:420px"></select><button class="btn small" id="newSongBtn" type="button">+ New song</button></div>
       <div class="field"><label for="edTitle">Song title</label><input class="input" id="edTitle" maxlength="60"></div>
       <div class="field"><label for="edBpm">Full speed (beats per minute)</label><input class="input" id="edBpm" type="number" min="40" max="180" style="max-width:160px"></div>
@@ -303,12 +303,17 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--surface-
 "use strict";
 // ---------- songs ----------
 const BUILTIN = [
-  { id:'hippo', title:'I Want a Hippopotamus for Christmas', bpm:112, beatsPerBar:4, draft:true,
+  { id:'hippo', title:'I Want a Hippopotamus for Christmas', bpm:180, beatsPerBar:3, count:{n:2, beats:1.5},
     parts:[
-      {notes:'C4 D4 E4 G4 G4 G4 G4 E4 G4 A4 G4-2', lyrics:''},
-      {notes:'A4 A4 G4 F4 F4 F4 F4 E4 F4 E4 D4-2', lyrics:''},
-      {notes:'E4 E4 E4 F4-2 F4 G4 G4 G4 A4 G4-2', lyrics:''},
-      {notes:'C4 D4 E4 G4 G4 G4 G4 E4 G4 A4 G4 E4 D4 C4-3', lyrics:''}
+      {name:'Chorus', notes:'F4-0.5 Bb4 Bb4-0.5 F4 F4-0.5 G4 G4-0.5 D4 D4-0.5 F4-1.5 F4-4 F4-0.5 Bb4 Bb4-0.5 F4 F4-0.5 G4 G4-0.5 D4 D4-0.5 F4-5 R-1', lyrics:''},
+      {name:'Verse', notes:'A4-1.5 A4 G#4-0.5 A4-0.5 A4-2 G#4-0.5 A4 G#4-0.5 A4 G4-0.5 A4-2.5 F4-0.5 G4 F#4-0.5 G4 F4-0.5 G4 A4-0.5 Bb4 B4-0.5 C5 Bb4-0.5 A4 G4-0.5 F4-2.5 F4-0.5', lyrics:''},
+      {name:'Chorus', notes:'Bb4 Bb4-0.5 F4 F4-0.5 G4 G4-0.5 D4 D4-0.5 F4-1.5 F4-4 F4-0.5 Bb4 Bb4-0.5 F4 F4-0.5 G4 G4-0.5 D4 D4-0.5 F4-4.5 R-1 F4-0.5', lyrics:''},
+      {name:'Verse', notes:'A4-1.5 A4 G#4-0.5 A4-0.5 A4-2 G#4-0.5 A4 G#4-0.5 A4 G4-0.5 A4-2.5 F4-0.5 G4 F#4-0.5 G4 F4-0.5 G4 A4-0.5 Bb4 B4-0.5 C5 Bb4-0.5 A4 G4-0.5 F4-1.5 F4 F4-0.5', lyrics:''},
+      {name:'Middle', notes:'Ab4-1.5 C5-1.5 F4-1.5 Ab4-1.5 G4-1.5 Bb4-1.5 Eb4-1.5 G4-1.5 F4-1.5 Ab4-1.5 D4-1.5 C5-1.5 Bb4-4.5 Bb4 Bb4-0.5', lyrics:''},
+      {name:'Middle', notes:'A4 A4-0.5 A4 C5-0.5 F4-1.5 G4 A4-0.5 Bb4 Bb4-0.5 Bb4 D5-0.5 F4 G4-0.5 A4 Bb4-0.5 C5-1.5 Bb4-1.5 A4-1.5 E4-1.5 G4-1.5 F4-1.5 F4-1.5 R-1 F4-0.5', lyrics:''},
+      {name:'Chorus', notes:'Bb4 Bb4-0.5 F4 F4-0.5 G4 G4-0.5 D4 D4-0.5 F4-1.5 F4-4.5 Bb4-0.5 Bb4-0.5 Bb4-0.5 F4 F4-0.5 G4 G4-0.5 D4 D4-0.5 F4-5 R-1', lyrics:''},
+      {name:'Verse', notes:'A4-1.5 A4 G#4-0.5 A4-0.5 A4-2 G#4-0.5 A4 A4-0.5 A4 G#4-0.5 A4-0.5 A4-2.5 G4-1.5 G4 F#4-0.5 G4-3 C5 Bb4-0.5 A4 G4-0.5 F4-0.5 F4-2 F4-0.5', lyrics:''},
+      {name:'Ending', notes:'G4 F#4-0.5 G4 G#4-0.5 A4 G#4-0.5 A4 D5-0.5 Bb4-4', lyrics:''}
     ]},
   { id:'twinkle', title:'Twinkle, Twinkle, Little Star', bpm:92, beatsPerBar:4,
     parts:[
@@ -351,14 +356,18 @@ const ANIMALS = ['🦛','🐻','🐱','🐶','🦊','🐼','🐸','🦄','🐧',
 const SEMI = {C:0,D:2,E:4,F:5,G:7,A:9,B:11};
 const NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const NOTE_RE = /^([A-Ga-g])([#b]?)(\d)(?:-(\d*\.?\d+))?$/;
+const REST_RE = /^[Rr](?:-(\d*\.?\d+))?$/;
 function parseNotes(str){
   return String(str||'').trim().split(/\s+/).filter(Boolean).map(t=>{
+    const r = REST_RE.exec(t);
+    if(r){ const b = r[1]!=null ? parseFloat(r[1]) : 1; if(!(b>0) || b>8) throw new Error(`"${t}" has a length I can't use.`); return {rest:true, beats:b}; }
     const m = NOTE_RE.exec(t);
-    if(!m) throw new Error(`"${t}" isn't a note I understand. Write notes like C4, G4-2 or F#4.`);
+    if(!m) throw new Error(`"${t}" isn't a note I understand. Write notes like C4, G4-2, F#4, Bb4 or R-1 for a rest.`);
     let midi = 12*(+m[3]+1) + SEMI[m[1].toUpperCase()] + (m[2]==='#'?1:m[2]==='b'?-1:0);
     const beats = m[4]!=null ? parseFloat(m[4]) : 1;
     if(!(beats>0) || beats>8) throw new Error(`"${t}" has a length I can't use. Use a number between 0.25 and 8.`);
-    return {midi, beats};
+    const name = m[1].toUpperCase() + (m[2]==='#'?'♯':m[2]==='b'?'♭':'');
+    return {midi, beats, name};
   });
 }
 function parseLyrics(str){
@@ -488,7 +497,10 @@ function buildKeyboard(){
     const g = keyGeom(m), b = el('button','key '+(g.black?'black':'white'));
     b.type='button'; b.style.left=(g.x*100)+'%'; b.style.width=(g.w*100)+'%';
     b.setAttribute('aria-label', letter(m)+(m===60?' (middle C)':''));
-    const s = el('span','sticker', letter(m)); b.appendChild(s);
+    const FLAT = {1:'D♭',3:'E♭',6:'G♭',8:'A♭',10:'B♭'};
+    const s = el('span','sticker', g.black ? letter(m).replace('#','♯') : letter(m));
+    if(g.black){ s.appendChild(document.createElement('br')); s.appendChild(document.createTextNode(FLAT[m%12])); b.setAttribute('aria-label', letter(m)+' or '+FLAT[m%12]); }
+    b.appendChild(s);
     if(m===60) b.appendChild(el('span','mc','Middle C'));
     b.addEventListener('pointerdown', ev=>{ ev.preventDefault(); noteIn(m,'screen'); });
     ['pointerup','pointerleave','pointercancel'].forEach(t=>b.addEventListener(t,()=>b.classList.remove('down')));
@@ -520,7 +532,8 @@ function buildEvents(){
   idxs.forEach(pi=>{
     let notes=[]; try{ notes = parseNotes(song.parts[pi].notes); }catch(e){}
     const ly = parseLyrics(song.parts[pi].lyrics);
-    notes.forEach((n,i)=>{ let l = ly[i]||''; l = l.replace('{name}', name); evs.push({midi:n.midi, beats:n.beats, beat, lyric:l, part:pi, state:null}); beat += n.beats; });
+    let j = 0;
+    notes.forEach(n=>{ if(n.rest){ beat += n.beats; return; } let l = ly[j++]||''; l = l.replace('{name}', name); evs.push({midi:n.midi, name:n.name, beats:n.beats, beat, lyric:l, part:pi, state:null}); beat += n.beats; });
   });
   P.evs = evs; P.totalBeats = beat;
 }
@@ -562,9 +575,10 @@ function stopAll(){
 function resetRun(){
   stopAll(); buildEvents(); P.idx=0; P.mistakes=0; P.evs.forEach(e=>e.state=null);
   if(P.mode==='step'){ renderStrip(); }
-  else { setTargets([]); P.spb = 60/(P.song.bpm*P.speed); P.now = -beatsIn()*P.spb; sizeCanvas(); drawFall(); $('#scoreline').textContent = P.evs.length+' notes · press Start'; }
+  else { setTargets([]); P.spb = 60/(P.song.bpm*P.speed); P.now = -leadBeats()*P.spb; sizeCanvas(); drawFall(); $('#scoreline').textContent = P.evs.length+' notes · press Start'; }
 }
-const beatsIn = () => P.song.beatsPerBar||4;
+const countIn = () => P.song.count || {n:P.song.beatsPerBar||4, beats:1};
+const leadBeats = () => countIn().n*countIn().beats;
 
 // step mode
 function renderStrip(){
@@ -575,12 +589,13 @@ function renderStrip(){
   P.evs.forEach((e,i)=>{
     if(e.part!==showPart) return;
     const b = el('div','bubble'+(i<P.idx?' done':i===P.idx?' now':'')+(e.beats>=2?' long':''));
-    const ball = el('div','ball', letter(e.midi)); if(e.midi>=72) ball.appendChild(el('small',null,'HIGH'));
+    const ball = el('div','ball', e.name); if(e.midi>=72) ball.appendChild(el('small',null,'HIGH'));
     b.append(ball, el('div','lyr', e.lyric)); strip.appendChild(b);
   });
   const h = $('#helper'); h.textContent='';
-  const label = (P.part<0 ? 'Part '+(showPart+1)+' · ' : '');
-  h.append(document.createTextNode(label+'Find the glowing key: '), el('b',null,letter(cur.midi)+(cur.midi>=72?' (high)':'')));
+  const pn = P.song.parts[showPart].name;
+  const label = (P.part<0 || pn ? 'Part '+(showPart+1)+(pn?' ('+pn+')':'')+' · ' : '');
+  h.append(document.createTextNode(label+'Find the glowing key: '), el('b',null,cur.name+(cur.midi>=72?' (high)':'')+(isBlack(cur.midi)?' (black key)':'')));
   setTargets([cur.midi]);
 }
 function stepInput(m){
@@ -591,7 +606,7 @@ function stepInput(m){
     else renderStrip();
   } else {
     P.mistakes++; flashKey(m,'bad');
-    const h=$('#helper'); h.textContent=''; h.append(document.createTextNode('Oops! Try the glowing key: '), el('b',null,letter(cur.midi)));
+    const h=$('#helper'); h.textContent=''; h.append(document.createTextNode('Oops! Try the glowing key: '), el('b',null,cur.name));
   }
 }
 function finishStep(){
@@ -622,15 +637,15 @@ function drawFall(){
     const yb = hitY - t0/look*hitY, yt = hitY - t1/look*hitY + 3*d;
     g.fillStyle = e.state==='hit'?cols.h:e.state==='miss'?cols.m:cols.n;
     const r = Math.min(10*d, w/2); g.beginPath(); g.roundRect ? g.roundRect(x,yt,w,Math.max(8*d,yb-yt),r) : g.rect(x,yt,w,Math.max(8*d,yb-yt)); g.fill();
-    if(yb-yt > 18*d){ g.fillStyle='#fff'; g.fillText(letter(e.midi), x+w/2, yb-12*d); }
+    if(yb-yt > 18*d){ g.fillStyle='#fff'; g.fillText(e.name, x+w/2, yb-12*d); }
   });
 }
 function startPlay(){
   stopAll(); const c = ac(); buildEvents(); P.evs.forEach(e=>e.state=null);
-  P.spb = 60/(P.song.bpm*P.speed); const lead = beatsIn()*P.spb;
+  P.spb = 60/(P.song.bpm*P.speed); const ci = countIn(); const lead = leadBeats()*P.spb;
   P.hits=0; P.startAt = performance.now()/1000 + lead; P.running = true;
   $('#goBtn').textContent='Stop';
-  for(let i=0;i<beatsIn();i++){ click(i*P.spb, i===0); P.timers.push(setTimeout(()=>{ $('#count').textContent = String(i+1); }, i*P.spb*1000)); }
+  for(let i=0;i<ci.n;i++){ click(i*ci.beats*P.spb, i===0); P.timers.push(setTimeout(()=>{ $('#count').textContent = String(i+1); }, i*ci.beats*P.spb*1000)); }
   P.timers.push(setTimeout(()=>{ $('#count').textContent=''; }, lead*1000));
   if(state.settings.guide && c){ P.guide = c.createGain(); P.guide.gain.value = midiAccess&&pianoState==='connected'?0.35:0.6; P.guide.connect(c.destination);
     P.evs.forEach(e=>tone(e.midi, lead + e.beat*P.spb, e.beats*P.spb*0.9, 0.2, P.guide)); }
@@ -638,7 +653,8 @@ function startPlay(){
     if(!P.running) return;
     P.now = performance.now()/1000 - P.startAt;
     let tgt = [];
-    P.evs.forEach(e=>{ const t = e.beat*P.spb; if(!e.state && P.now > t+WIN){ e.state='miss'; } if(!e.state && t-P.now < 0.5 && t-P.now > -WIN) tgt.push(e.midi); });
+    let next = Infinity;
+    P.evs.forEach(e=>{ const t = e.beat*P.spb; if(!e.state && P.now > t+WIN){ e.state='miss'; } if(!e.state && t-P.now < 0.5 && t-P.now > -WIN){ if(t < next - 0.01){ next = t; tgt = [e.midi]; } else if(Math.abs(t-next) <= 0.01) tgt.push(e.midi); } });
     setTargets(tgt);
     const done = P.evs.filter(e=>e.state).length;
     $('#scoreline').textContent = `${P.hits} of ${P.evs.length} notes`;
@@ -760,7 +776,7 @@ function showSongs(){
     const b = el('button','song'); b.type='button';
     const art = el('div','art');
     let notes=[]; s.parts.forEach(pt=>{ try{ notes = notes.concat(parseNotes(pt.notes)); }catch(e){} });
-    notes.slice(0,22).forEach(n=>{ const bar=el('span'); bar.style.height = (14 + (n.midi-58)*2.2)+'px'; art.appendChild(bar); });
+    notes.filter(n=>!n.rest).slice(0,22).forEach(n=>{ const bar=el('span'); bar.style.height = (14 + (n.midi-58)*2.2)+'px'; art.appendChild(bar); });
     b.appendChild(art);
     if(s.draft && !s.edited) b.appendChild(el('span','badge','Notes need checking'));
     b.appendChild(el('h3',null,s.title));
@@ -839,7 +855,7 @@ function validateEditor(){
     if(!$('#edTitle').value.trim()) throw new Error('Give the song a title.');
     edParts.forEach((p,i)=>{ let n; try{ n=parseNotes(p.notes); }catch(e){ throw new Error('Part '+(i+1)+': '+e.message); }
       if(!n.length) throw new Error('Part '+(i+1)+' has no notes yet.');
-      const l = parseLyrics(p.lyrics).length; if(l && l!==n.length) warn.push(`Part ${i+1} has ${n.length} notes but ${l} syllables.`); });
+      n = n.filter(x=>!x.rest); const l = parseLyrics(p.lyrics).length; if(l && l!==n.length) warn.push(`Part ${i+1} has ${n.length} notes but ${l} syllables.`); });
   }catch(e){ err.textContent=e.message; err.hidden=false; return null; }
   return warn;
 }
@@ -861,7 +877,7 @@ $('#newSongBtn').onclick = ()=>{
 $('#edListen').onclick = ()=>{
   if(!validateEditor()) return;
   const c = ac(); if(!c) return; const spb = 60/((+$('#edBpm').value||100)*0.8); let beat=0;
-  edParts.forEach(p=>parseNotes(p.notes).forEach(n=>{ tone(n.midi, 0.1+beat*spb, n.beats*spb*0.9, 0.24); beat+=n.beats; }));
+  edParts.forEach(p=>parseNotes(p.notes).forEach(n=>{ if(!n.rest) tone(n.midi, 0.1+beat*spb, n.beats*spb*0.9, 0.24); beat+=n.beats; }));
 };
 
 // ---------- boot ----------
