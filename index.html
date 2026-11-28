@@ -3,7 +3,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&family=Noto+Music&display=swap">
 <style>
 /* Layout: one app column; practice screen stacks controls → stage (note strip or falling notes) → piano keys that mirror the real keyboard */
 :root{
@@ -115,6 +115,27 @@ button{cursor:pointer}
 .scoreline{position:absolute;top:12px;left:16px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--muted)}
 
 .kbd-wrap{display:flex;flex-direction:column;gap:6px}
+.staffscroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+.staffscroll svg{display:block}
+.mus{font-family:'Noto Music','Segoe UI Symbol','Apple Symbols',serif}
+.readcard{border:0;text-align:left;background:var(--surface);border-radius:20px;box-shadow:var(--shadow);padding:18px;display:flex;align-items:center;gap:16px;width:100%}
+.readcard:hover{transform:translateY(-2px)}
+.readcard svg{flex:none}
+.readcard .grow{flex:1;min-width:0}
+.lessons{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));gap:16px}
+.lesson{display:flex;flex-direction:column;gap:10px;min-width:0}
+.lesson .num{font-size:.8rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.lesson p{max-width:62ch}
+.lesson .fig{background:var(--stage);border-radius:14px;padding:8px}
+.mnemonic{font-family:var(--font-display);font-weight:600;font-size:1.15rem}
+.mnemonic b{color:var(--accent);font-size:1.3rem}
+.game-staff{display:flex;justify-content:center;min-height:200px}
+.dots{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.dots span{width:14px;height:14px;border-radius:50%;background:var(--line)}
+.dots span.ok{background:var(--green)}
+.dots span.miss{background:var(--gold)}
+.dots span.cur{outline:3px solid var(--note);outline-offset:1px}
+.lvlstars{color:var(--gold);font-size:.85rem;margin-left:4px;letter-spacing:1px}
 .kbd{position:relative;height:clamp(140px,26vh,230px);touch-action:none;user-select:none;-webkit-user-select:none}
 .key{position:absolute;top:0;border:0;padding:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;font-family:var(--font-display);font-weight:700}
 .key.white{height:100%;background:var(--key-white);border:1px solid var(--key-white-edge);border-radius:0 0 10px 10px;color:var(--key-label);padding-bottom:10px;font-size:clamp(.9rem,2.4vw,1.5rem);z-index:1}
@@ -206,6 +227,11 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--surface-
       <span class="starcount" style="font-size:1.3rem">★ <span id="meStars">0</span></span>
     </div>
     <p class="muted">Pick a song. <b>Learn</b> stars come from Step by step and Wait for me. <b>Play</b> stars come from Play along, where the notes keep moving.</p>
+    <button class="readcard" id="openRead" type="button">
+      <svg width="86" height="56" viewBox="0 0 86 56" aria-hidden="true"><g stroke="var(--ink)" stroke-width="1.4"><line x1="2" y1="10" x2="84" y2="10"/><line x1="2" y1="19" x2="84" y2="19"/><line x1="2" y1="28" x2="84" y2="28"/><line x1="2" y1="37" x2="84" y2="37"/><line x1="2" y1="46" x2="84" y2="46"/></g><ellipse cx="30" cy="41.5" rx="5.6" ry="4" transform="rotate(-20 30 41.5)" fill="var(--note)"/><line x1="35.2" y1="41" x2="35.2" y2="14" stroke="var(--note)" stroke-width="1.6"/><ellipse cx="56" cy="32.5" rx="5.6" ry="4" transform="rotate(-20 56 32.5)" fill="var(--accent)"/><line x1="61.2" y1="32" x2="61.2" y2="5" stroke="var(--accent)" stroke-width="1.6"/></svg>
+      <span class="grow"><h3>Learn to read music</h3><span class="muted">Short lessons and a note game. Find the note on the staff, then play it.</span></span>
+      <span class="starcount" id="readStars">★ 0</span>
+    </button>
     <div class="songs" id="songGrid"></div>
   </section>
 
@@ -232,6 +258,13 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--surface-
     <div class="controls">
       <button class="btn" id="listenBtn" type="button">▶ Listen</button>
       <button class="btn" id="restartBtn" type="button">↺ Start over</button>
+      <span id="stepOnly" class="controls">
+        <div class="seg" id="viewSeg" role="group" aria-label="How to show the notes">
+          <button type="button" data-view="letters">ABC letters</button>
+          <button type="button" data-view="staff">Sheet music</button>
+        </div>
+        <button class="btn small ghost" id="hintBtn" type="button" aria-pressed="true">Letter hints: on</button>
+      </span>
       <span id="playOnly" class="controls" hidden>
         <div class="seg" id="speedSeg" role="group" aria-label="Speed">
           <button type="button" data-speed="0.6">🐢 Slow</button>
@@ -254,10 +287,34 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--surface-
         <div class="count" id="count"></div>
       </div>
     </div>
-    <div class="kbd-wrap">
+    <div id="kbdSlotPractice"><div class="kbd-wrap" id="kbdWrap">
       <div class="kbd" id="kbd" aria-label="Piano keys"></div>
       <div class="kbd-foot"></div>
       <div class="mapline"><span>On your piano:</span><svg class="map" id="map" viewBox="0 0 520 22" preserveAspectRatio="none" aria-hidden="true"></svg><span>Middle C is the 4th C from the left</span></div>
+    </div></div>
+  </section>
+
+  <!-- READING -->
+  <section id="scrRead" class="gsec" hidden>
+    <div class="topbar">
+      <button class="btn small ghost" id="backFromRead" type="button">← Songs</button>
+      <h2 class="grow">Learn to read music</h2>
+      <span class="chip" id="rWho"></span>
+    </div>
+    <div class="seg" id="readTabs" role="group" aria-label="Lessons or game" style="align-self:flex-start">
+      <button type="button" data-tab="lessons">Lessons</button>
+      <button type="button" data-tab="game">Note game</button>
+    </div>
+    <div id="lessonsView" class="lessons"></div>
+    <div id="gameView" class="gsec" hidden>
+      <div class="seg" id="levelSeg" role="group" aria-label="Level"></div>
+      <div class="stage strip-wrap">
+        <p class="helper" id="gameMsg"></p>
+        <div class="game-staff staffscroll" id="gameStaff"></div>
+        <div class="dots" id="gameDots"></div>
+        <div class="row"><button class="btn small ghost" id="gameHint" type="button">Show me a hint</button><button class="btn small ghost" id="gameRestart" type="button">↺ New round</button></div>
+      </div>
+      <div id="kbdSlotRead"></div>
     </div>
   </section>
 
@@ -322,7 +379,7 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--surface-
 "use strict";
 // ---------- songs ----------
 const BUILTIN = [
-  { id:'hippo', title:'I Want a Hippopotamus for Christmas', bpm:180, beatsPerBar:3, count:{n:2, beats:1.5},
+  { id:'hippo', title:'I Want a Hippopotamus for Christmas', bpm:180, beatsPerBar:3, pickup:0.5, timeSig:'6/8', count:{n:2, beats:1.5},
     parts:[
       {name:'Chorus', notes:'F4-0.5 Bb4 Bb4-0.5 F4 F4-0.5 G4 G4-0.5 D4 D4-0.5 F4-1.5 F4-4 F4-0.5 Bb4 Bb4-0.5 F4 F4-0.5 G4 G4-0.5 D4 D4-0.5 F4-5 R-1', lyrics:'', left:'R-0.5 Bb3-3 Bb3-3 Bb3-3 Bb3-3 Bb3-3 Bb3-3 F3-3 F3-3'},
       {name:'Verse', notes:'A4-1.5 A4 G#4-0.5 A4-0.5 A4-2 G#4-0.5 A4 G#4-0.5 A4 G4-0.5 A4-2.5 F4-0.5 G4 F#4-0.5 G4 F4-0.5 G4 A4-0.5 Bb4 B4-0.5 C5 Bb4-0.5 A4 G4-0.5 F4-2.5 F4-0.5', lyrics:'', left:'F3-3 F3-3 F3-3 F3-3 C3-3 C3-3 C3-3 F3-3'},
@@ -361,7 +418,7 @@ const BUILTIN = [
       {notes:'F4 F4 F4-1.5 F4-0.5 F4 E4 E4 E4-0.5 E4-0.5', lyrics:'Oh, what fun it is to ride in a', left:'F3-4 C3-4'},
       {notes:'G4 G4 F4 D4 C4-4', lyrics:'one-horse o-pen sleigh!', left:'G3-4 C3-4'}
     ]},
-  { id:'birthday', title:'Happy Birthday', bpm:96, beatsPerBar:3,
+  { id:'birthday', title:'Happy Birthday', bpm:96, beatsPerBar:3, pickup:1, timeSig:'3/4',
     parts:[
       {notes:'G4-0.75 G4-0.25 A4 G4 C5 B4-2', lyrics:'Hap-py birth-day to you,', left:'R-1 C3-3 G3-2'},
       {notes:'G4-0.75 G4-0.25 A4 G4 D5 C5-2', lyrics:'hap-py birth-day to you,', left:'R-1 G3-3 C3-2'},
@@ -380,7 +437,7 @@ const BUILTIN = [
       {name:'Big finish', notes:'A4 C5 D5-0.5 D5-0.5 C5-0.5 C5-0.5 Ab4-0.5 Ab4-0.5 C5-0.5 D5-2.5 R-1 C5-0.5 A4-0.5 B4-0.5 A4-0.5 G4 R-1 C5-0.5 A4-0.5 B4-0.5 A4-0.5 G4', lyrics:'', left:'F3-4 F3-4 D3-2 G3-2 D3-2 G3-2'},
       {name:'Ending', notes:'R-1 C5-0.5 A4-0.5 B4-0.5 C5-0.5 D5 C5-4 C5 R-1 C6', lyrics:'', left:'D3-2 G3-2 C3-4 C3-1 R-1 C3-1'}
     ]},
-  { id:'wewish', title:'We Wish You a Merry Christmas', bpm:132, beatsPerBar:3,
+  { id:'wewish', title:'We Wish You a Merry Christmas', bpm:132, beatsPerBar:3, pickup:1, timeSig:'3/4',
     parts:[
       {name:'Verse', notes:'G4 C5 C5-0.5 D5-0.5 C5-0.5 B4-0.5 A4 A4', lyrics:'We wish you a mer-ry Christ-mas,', left:'R-1 C3-3 F3-2'},
       {name:'Verse', notes:'A4 D5 D5-0.5 E5-0.5 D5-0.5 C5-0.5 B4 G4', lyrics:'we wish you a mer-ry Christ-mas,', left:'R-1 D3-3 G3-2'},
@@ -465,7 +522,7 @@ const getSong = id => songList().find(s=>s.id===id);
 const $ = s => document.querySelector(s);
 function el(tag, cls, text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
 function starsEl(n, cls='stars'){ const s=el('span',cls); for(let i=0;i<3;i++){ const x=el('span', i<n?'':'off','★'); s.appendChild(x);} s.setAttribute('aria-label', n+' of 3 stars'); return s; }
-function screens(name){ ['Players','Songs','Practice','Grown'].forEach(n=>{ $('#scr'+n).hidden = n!==name; }); current = name; window.scrollTo(0,0); }
+function screens(name){ ['Players','Songs','Practice','Grown','Read'].forEach(n=>{ $('#scr'+n).hidden = n!==name; }); current = name; window.scrollTo(0,0); }
 let current = 'Players', me = null, returnTo = 'Players';
 const player = () => state.players.find(p=>p.id===me);
 function totalStars(p){ let t=0; Object.values(p.best||{}).forEach(song=>Object.values(song).forEach(part=>{ t += (part.step||0)+(part.play||0); })); return t; }
@@ -587,14 +644,16 @@ function buildEvents(){
   const song = P.song, name = player()?.name || 'friend';
   const idxs = P.part<0 ? song.parts.map((_,i)=>i) : [P.part];
   let beat = 0; const evs = [];
+  P.partAbs = []; P.partLen = []; let acc = 0;
+  song.parts.forEach((pt,i)=>{ let a=[], b=[]; try{ a=parseNotes(pt.notes); }catch(e){} try{ b=parseNotes(pt.left||''); }catch(e){} P.partAbs[i]=acc; P.partLen[i]=Math.max(totalOf(a),totalOf(b)); acc+=P.partLen[i]; });
   idxs.forEach(pi=>{
     const part = song.parts[pi];
     let rn=[], ln=[]; try{ rn = parseNotes(part.notes); }catch(e){} try{ ln = parseNotes(part.left||''); }catch(e){}
     const ly = parseLyrics(part.lyrics);
     if(P.hands!=='L'){ let b = beat, j = 0;
-      rn.forEach(n=>{ if(!n.rest){ let l = (ly[j++]||'').replace('{name}', name); evs.push({midi:n.midi, name:n.name, beats:n.beats, beat:b, lyric:l, part:pi, hand:'R', state:null}); } b += n.beats; }); }
+      rn.forEach(n=>{ if(!n.rest){ let l = (ly[j++]||'').replace('{name}', name); evs.push({midi:n.midi, name:n.name, beats:n.beats, beat:b, abs:P.partAbs[pi]+(b-beat), lyric:l, part:pi, hand:'R', state:null}); } b += n.beats; }); }
     if(P.hands!=='R'){ let b = beat;
-      ln.forEach(n=>{ if(!n.rest) evs.push({midi:n.midi, name:n.name, beats:n.beats, beat:b, lyric:'', part:pi, hand:'L', state:null}); b += n.beats; }); }
+      ln.forEach(n=>{ if(!n.rest) evs.push({midi:n.midi, name:n.name, beats:n.beats, beat:b, abs:P.partAbs[pi]+(b-beat), lyric:'', part:pi, hand:'L', state:null}); b += n.beats; }); }
     beat += Math.max(totalOf(rn), totalOf(ln));
   });
   evs.sort((a,b)=>a.beat-b.beat || (a.hand==='R'?-1:1));
@@ -609,11 +668,12 @@ function bestAny(p, songId, base){
   return r;
 }
 function openPractice(songId){
+  $('#kbdSlotPractice').appendChild($('#kbdWrap'));
   const song = getSong(songId); if(!song) return;
   const p = player();
   let start = song.parts.findIndex((_,i)=>!(bestAny(p,songId,'p'+i).step>0));
   const hands = hasLeft(song) ? (state.settings.hands||'R') : 'R';
-  P = {song, hands, part: start<0?-1:start, mode:'step', speed:0.8, idx:0, mistakes:0, running:false, raf:0, timers:[], guide:null};
+  P = {song, hands, view: state.settings.view||'letters', part: start<0?-1:start, mode:'step', speed:0.8, idx:0, mistakes:0, running:false, raf:0, timers:[], guide:null};
   $('#pSong').textContent = song.title;
   const who = $('#pWho'); who.textContent=''; who.append(el('span',null,p.animal), el('span',null,p.name));
   buildPartSeg(); syncSeg();
@@ -632,11 +692,17 @@ function syncSeg(){
   document.querySelectorAll('#handSeg button').forEach(b=>{ b.setAttribute('aria-pressed', b.dataset.hand===P.hands); b.disabled = !lh && b.dataset.hand!=='R'; b.title = b.disabled ? 'This song has no left-hand part yet' : ''; });
   $('#handLegend').hidden = P.hands!=='B';
   $('#playOnly').hidden = P.mode==='step';
+  $('#stepOnly').hidden = P.mode!=='step';
+  document.querySelectorAll('#viewSeg button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.view===P.view));
+  $('#hintBtn').hidden = P.view!=='staff';
+  const hon = state.settings.hints!==false; $('#hintBtn').setAttribute('aria-pressed', hon); $('#hintBtn').textContent = 'Letter hints: '+(hon?'on':'off');
   $('#stepView').hidden = P.mode!=='step'; $('#playView').hidden = P.mode==='step';
 }
 $('#partSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b||!P) return; P.part=+b.dataset.part; syncSeg(); resetRun(); });
 $('#modeSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b||!P) return; P.mode=b.dataset.mode; syncSeg(); resetRun(); });
 $('#handSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b||!P||b.disabled) return; P.hands=b.dataset.hand; state.settings.hands=P.hands; try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(err){} syncSeg(); resetRun(); });
+$('#viewSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b||!P) return; P.view=b.dataset.view; state.settings.view=P.view; try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(err){} syncSeg(); renderStrip(); });
+$('#hintBtn').addEventListener('click', ()=>{ state.settings.hints = state.settings.hints===false; try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(err){} syncSeg(); renderStrip(); });
 $('#speedSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b||!P) return; P.speed=+b.dataset.speed; syncSeg(); resetRun(); });
 $('#restartBtn').addEventListener('click', ()=>resetRun());
 $('#goBtn').addEventListener('click', ()=>{ if(P.running) resetRun(); else startPlay(); });
@@ -659,12 +725,25 @@ const handWord = e => P.hands==='B' ? (e.hand==='L'?'left hand ':'right hand ') 
 function keyText(e){ return e.name+(e.midi>=72?' (high)':'')+(isBlack(e.midi)?' (black key)':''); }
 
 // step mode
+function renderStaffStrip(showPart){
+  const strip = $('#strip');
+  const cur = P.groups[P.idx];
+  const stOf = e => e.state==='hit' ? 'done' : (cur && cur.evs.includes(e) ? 'now' : '');
+  const mk = e => ({abs:e.abs, beats:e.beats, midi:e.midi, name:e.name, hand:e.hand, state:stOf(e), lyric:e.lyric});
+  const evs = P.evs.filter(e=>e.part===showPart), staves = [];
+  if(P.hands!=='L') staves.push({clef:'treble', notes:evs.filter(e=>e.hand==='R').map(mk)});
+  if(P.hands!=='R') staves.push({clef:'bass', notes:evs.filter(e=>e.hand==='L').map(mk)});
+  const r = renderStaff({staves, start:P.partAbs[showPart], end:P.partAbs[showPart]+P.partLen[showPart], bpb:P.song.beatsPerBar||4, pickup:P.song.pickup||0, timeSig:P.song.timeSig||((P.song.beatsPerBar||4)+'/4'), letters:state.settings.hints!==false, lyrics:true});
+  const wrap = el('div','staffscroll'); wrap.appendChild(r.svg); strip.appendChild(wrap);
+  if(r.nowX!=null) requestAnimationFrame(()=>{ wrap.scrollLeft = Math.max(0, r.nowX - wrap.clientWidth*0.35); });
+}
 function renderStrip(){
   const strip = $('#strip'); strip.textContent='';
   const cur = P.groups[P.idx];
   if(!cur){ setTargets([]); return; }
   const showPart = cur.part;
-  P.groups.forEach((g,i)=>{
+  if(P.view==='staff') renderStaffStrip(showPart);
+  else P.groups.forEach((g,i)=>{
     if(g.part!==showPart) return;
     const rh = g.evs.find(e=>e.hand==='R'), lh = g.evs.find(e=>e.hand==='L');
     const main = rh || (P.hands==='L' ? lh : null);
@@ -814,6 +893,7 @@ function noteIn(m, src){
   keyMap.get(m)?.classList.add('down');
   if(src==='screen'){ tone(m,0,0.4); }
   if(src==='piano') setTimeout(()=>keyMap.get(m)?.classList.remove('down'), 250);
+  if(current==='Read'){ readInput(m); return; }
   if(current!=='Practice' || !P || P.demo) return;
   if(P.mode==='step') stepInput(m);
   else if(P.running && P.now >= -WIN) playInput(m);
@@ -844,6 +924,355 @@ function showResult(stars, title, text){
   $('#overlay').hidden=false; again.focus();
 }
 function closeOverlay(){ $('#overlay').hidden=true; }
+function showOverlay(stars, title, text, buttons){
+  if(stars>=2) cheer();
+  const s = $('#resStars'); s.textContent='';
+  for(let i=0;i<3;i++) s.appendChild(el('span', i<stars?'on':'', '★'));
+  $('#resTitle').textContent = title; $('#resText').textContent = text;
+  const btns = $('#resBtns'); btns.textContent='';
+  buttons.forEach((b,i)=>{ const x = el('button','btn '+(b.cls||''), b.label); x.type='button'; x.onclick=()=>{ closeOverlay(); b.fn(); }; btns.appendChild(x); });
+  $('#overlay').hidden=false; btns.firstChild?.focus();
+}
+
+// ---------- music notation (SVG) ----------
+const SVGNS = 'http://www.w3.org/2000/svg';
+function sv(tag, attrs, parent){ const e = document.createElementNS(SVGNS, tag); for(const k in attrs) e.setAttribute(k, attrs[k]); if(parent) parent.appendChild(e); return e; }
+const LET = 'CDEFGAB';
+// diatonic step number (C4 = 28) using the spelled letter when we have one
+function diat(midi, name){
+  const oct = Math.floor(midi/12) - 1;
+  if(name && LET.includes(name[0])){
+    let d = oct*7 + LET.indexOf(name[0]);
+    if(name[0]==='C' && name.includes('♭')) d += 7; // C♭ belongs to the octave above
+    if(name[0]==='B' && name.includes('♯')) d -= 7;
+    return d;
+  }
+  return oct*7 + [0,0,1,1,2,3,3,4,4,5,5,6][((midi%12)+12)%12];
+}
+const accOf = (midi, name) => name ? (name.includes('♯')?'♯':name.includes('♭')?'♭':'') : (isBlack(midi)?'♯':'');
+const CLEF = { treble:{top:38, bottom:30, mid:34, glyph:'\u{1D11E}'}, bass:{top:26, bottom:18, mid:22, glyph:'\u{1D122}'} };
+const VALS = [4,3,2,1.5,1,0.75,0.5,0.25];
+function splitDur(t, dur, bars){
+  const out = []; let g = 0;
+  while(dur > 1e-6 && g++ < 64){
+    const nb = bars.find(b=>b > t + 1e-6);
+    const seg = nb!==undefined ? Math.min(dur, nb - t) : dur;
+    const v = VALS.find(v=>v <= seg + 1e-6) || seg;
+    out.push([t, v]); t += v; dur -= v;
+  }
+  return out;
+}
+// opts: {staves:[{clef, notes:[{abs,beats,midi,name,hand,state,lyric}], rests?}], start, end, bpb, pickup, timeSig, letters, lyrics, S, autoRests, clefs, labels}
+function renderStaff(o){
+  const S = o.S || 12, h = S/2, bpb = o.bpb || 4, pick = o.pickup || 0;
+  const start = o.start || 0, end = o.end != null ? o.end : 4;
+  const C = {ink:'var(--ink)', now:'var(--gold)', done:'var(--green)', line:'var(--muted)'};
+  // bar times strictly inside (start, end)
+  const bars = [];
+  if(!o.noBars){ let b = pick + Math.ceil((start - pick)/bpb - 1e-6)*bpb; if(b <= start + 1e-6) b += bpb; for(; b < end - 1e-6; b += bpb) bars.push(+b.toFixed(4)); }
+  // pieces per staff
+  const staves = o.staves.map(st=>{
+    const cf = CLEF[st.clef]; const pieces = [];
+    const notes = st.notes.slice().sort((a,b)=>a.abs-b.abs);
+    notes.forEach(n=>{
+      const d = diat(n.midi, n.name), acc = accOf(n.midi, n.name);
+      const parts = splitDur(n.abs, n.beats, bars);
+      parts.forEach(([t,v],i)=>pieces.push({t, v, d, acc: i===0?acc:'', note:n, first:i===0, tie:i<parts.length-1}));
+    });
+    let rests = st.rests ? st.rests.slice() : [];
+    if(o.autoRests !== false && !st.rests){
+      let cur = start;
+      notes.forEach(n=>{ if(n.abs > cur + 1e-6) rests.push({abs:cur, beats:n.abs-cur}); cur = Math.max(cur, n.abs + n.beats); });
+      if(end > cur + 1e-6 && notes.length) rests.push({abs:cur, beats:end-cur});
+      if(!notes.length && !o.noEmptyRests) rests.push({abs:start, beats:end-start});
+    }
+    rests.forEach(r=>splitDur(r.abs, r.beats, bars).forEach(([t,v])=>pieces.push({t, v, rest:true})));
+    return {cf, clef:st.clef, pieces, hasLyrics: o.lyrics && st.notes.some(n=>n.lyric), labels: st.labels};
+  });
+  // horizontal layout on a shared time grid
+  const times = new Set([+start.toFixed(4)]); bars.forEach(b=>times.add(b));
+  staves.forEach(st=>st.pieces.forEach(p=>times.add(+p.t.toFixed(4))));
+  const T = [...times].sort((a,b)=>a-b);
+  const accAt = new Set(); staves.forEach(st=>st.pieces.forEach(p=>{ if(p.acc) accAt.add(+p.t.toFixed(4)); }));
+  let x = (o.clefs===false ? 1.2*S : 3.9*S) + (o.timeSig ? 2.2*S : 0) + 1.2*S + (o.lead||0);
+  const pos = {}, barX = [];
+  const gap = dt => S*((o.gapBase||2.1) + 1.7*Math.sqrt(Math.max(dt,0.25)));
+  T.forEach((t,i)=>{
+    if(bars.includes(t)){ barX.push(x - 0.2*S); x += 1.1*S; }
+    if(accAt.has(t)) x += 1.0*S;
+    pos[t] = x;
+    const nt = i+1 < T.length ? T[i+1] : end;
+    x += gap(nt - t);
+  });
+  const W = Math.max(Math.ceil(x + 0.6*S), o.minWidth||0);
+  // vertical layout
+  let y = 0; staves.forEach(st=>{
+    st.top = y + 3.2*S; st.y = d => st.top + (st.cf.top - d)*h;
+    y = st.top + 4*S + 3.2*S;
+    if(o.letters) { st.letY = y + 0.2*S; y += 1.7*S; }
+    if(st.hasLyrics) { st.lyrY = y + 0.4*S; y += 1.9*S; }
+  });
+  const H = Math.ceil(y + 0.4*S);
+  const svg = sv('svg', {width:W, height:H, viewBox:`0 0 ${W} ${H}`, role:'img'});
+  const result = {svg, width:W, height:H, pos, staves, nowX:null, S};
+  staves.forEach(st=>{
+    const g = sv('g', {}, svg);
+    for(let k=0;k<5;k++) sv('line', {x1:0.5*S, x2:W-0.5*S, y1:st.y(st.cf.bottom+2*k), y2:st.y(st.cf.bottom+2*k), stroke:C.line, 'stroke-width':1}, g);
+    sv('line', {x1:0.5*S, x2:0.5*S, y1:st.y(st.cf.top), y2:st.y(st.cf.bottom), stroke:C.line, 'stroke-width':1.2}, g);
+    sv('line', {x1:W-0.5*S, x2:W-0.5*S, y1:st.y(st.cf.top), y2:st.y(st.cf.bottom), stroke:C.ink, 'stroke-width':2}, g);
+    if(o.clefs!==false){
+      const t = sv('text', {x:0.9*S, y: st.clef==='treble' ? st.y(st.cf.bottom)+0.95*S : st.y(st.cf.top)+2.15*S, 'font-size': st.clef==='treble'? 4.1*S : 3.05*S, fill:C.ink, class:'mus'}, g);
+      t.textContent = st.cf.glyph;
+    }
+    if(o.timeSig){
+      const [a,b] = o.timeSig.split('/'); const tx = (o.clefs===false?1.2:4.0)*S;
+      [[a, st.y(st.cf.mid)-0.15*S],[b, st.y(st.cf.bottom)-0.15*S]].forEach(([v,yy])=>{ const t = sv('text', {x:tx, y:yy, 'font-size':2.1*S, 'font-weight':700, 'font-family':'Fredoka, sans-serif', fill:C.ink}, g); t.textContent=v; });
+    }
+    barX.forEach(bx=>sv('line', {x1:bx, x2:bx, y1:st.y(st.cf.top), y2:st.y(st.cf.bottom), stroke:C.line, 'stroke-width':1.2}, g));
+    const ledger = (px, d) => {
+      const lw = 1.0*S;
+      for(let l = st.cf.bottom-2; l >= d; l -= 2) sv('line', {x1:px-lw, x2:px+lw, y1:st.y(l), y2:st.y(l), stroke:C.ink, 'stroke-width':1.2}, g);
+      for(let l = st.cf.top+2; l <= d; l += 2) sv('line', {x1:px-lw, x2:px+lw, y1:st.y(l), y2:st.y(l), stroke:C.ink, 'stroke-width':1.2}, g);
+    };
+    const drawn = new Map();
+    st.pieces.forEach(p=>{
+      const px = pos[+p.t.toFixed(4)];
+      if(p.rest){ drawRest(g, px, st, p.v, S, C.ink); return; }
+      const n = p.note, col = n.state==='now' ? C.now : n.state==='done' ? C.done : C.ink;
+      const py = st.y(p.d); ledger(px, p.d);
+      if(n.state==='now'){ sv('circle', {cx:px, cy:py, r:1.25*S, fill:'var(--glow)', opacity:.55}, g); if(result.nowX==null) result.nowX = px; }
+      const hollow = p.v >= 2;
+      sv('ellipse', {cx:px, cy:py, rx:0.68*S, ry:0.47*S, transform:`rotate(-20 ${px} ${py})`, fill: hollow ? 'var(--surface)' : col, stroke:col, 'stroke-width': hollow ? 1.8 : 1}, g);
+      if(p.v === 3 || p.v === 1.5 || p.v === 0.75){ const onLine = (p.d - st.cf.bottom) % 2 === 0; sv('circle', {cx:px+1.05*S, cy: onLine ? py-0.45*S : py, r:0.16*S, fill:col}, g); }
+      const up = p.d < st.cf.mid;
+      if(p.v < 4){
+        const sx = up ? px+0.62*S : px-0.62*S, sy2 = up ? py-3.4*S : py+3.4*S;
+        sv('line', {x1:sx, x2:sx, y1:py, y2:sy2, stroke:col, 'stroke-width':1.3}, g);
+        const flags = p.v <= 0.25 ? 2 : p.v <= 0.75 ? 1 : 0;
+        for(let f=0; f<flags; f++){
+          const fy = up ? sy2 + f*0.7*S : sy2 - f*0.7*S, dir = up ? 1 : -1;
+          sv('path', {d:`M${sx},${fy} C${sx+0.1*S},${fy+dir*0.8*S} ${sx+1.0*S},${fy+dir*1.0*S} ${sx+0.8*S},${fy+dir*2.0*S} C${sx+0.7*S},${fy+dir*1.3*S} ${sx+0.3*S},${fy+dir*1.2*S} ${sx},${fy+dir*1.0*S} Z`, fill:col}, g);
+        }
+      }
+      if(p.acc){ const t = sv('text', {x:px-1.75*S, y:py+0.5*S, 'font-size':1.6*S, fill:col, class:'mus'}, g); t.textContent = p.acc; }
+      const prev = drawn.get(n);
+      if(prev){ const dy = prev.up ? 0.8*S : -0.8*S; sv('path', {d:`M${prev.px+0.6*S},${prev.py+dy} Q${(prev.px+px)/2},${prev.py+dy*2.2} ${px-0.6*S},${py+dy}`, fill:'none', stroke:col, 'stroke-width':1.3}, g); }
+      if(p.tie) drawn.set(n, {px, py, up}); else drawn.delete(n);
+      if(p.first && o.letters){ const t = sv('text', {x:px, y:st.letY+S, 'text-anchor':'middle', 'font-size':1.15*S, 'font-weight':700, 'font-family':'Fredoka, sans-serif', fill: n.hand==='L' ? 'var(--note-left)' : 'var(--note)'}, g); t.textContent = n.name; }
+      if(p.first && st.hasLyrics && n.lyric){ const t = sv('text', {x:px, y:st.lyrY+S, 'text-anchor':'middle', 'font-size':1.05*S, 'font-weight':700, 'font-family':'Nunito, sans-serif', fill: n.state==='now' ? C.ink : 'var(--muted)'}, g); t.textContent = n.lyric; }
+    });
+  });
+  if(staves.length > 1) sv('line', {x1:0.5*S, x2:0.5*S, y1:staves[0].y(staves[0].cf.top), y2:staves[staves.length-1].y(staves[staves.length-1].cf.bottom), stroke:C.ink, 'stroke-width':2}, svg);
+  return result;
+}
+function drawRest(g, x, st, v, S, col){
+  const midY = st.y(st.cf.mid), h = S/2;
+  const dot = () => sv('circle', {cx:x+0.9*S, cy:midY-0.5*S, r:0.16*S, fill:col}, g);
+  if(v >= 4){ sv('rect', {x:x-0.6*S, y:st.y(st.cf.mid+2), width:1.2*S, height:0.5*S, fill:col}, g); return; }
+  if(v >= 2){ sv('rect', {x:x-0.6*S, y:midY-0.5*S, width:1.2*S, height:0.5*S, fill:col}, g); if(v===3) dot(); return; }
+  if(v >= 1){ sv('path', {d:`M${x-0.25*S},${midY-1.6*S} L${x+0.4*S},${midY-0.8*S} L${x-0.2*S},${midY-0.1*S} L${x+0.4*S},${midY+0.6*S} Q${x-0.6*S},${midY+0.2*S} ${x+0.05*S},${midY+1.4*S}`, fill:'none', stroke:col, 'stroke-width':0.28*S, 'stroke-linejoin':'round', 'stroke-linecap':'round'}, g); if(v===1.5) dot(); return; }
+  sv('circle', {cx:x-0.25*S, cy:midY-0.45*S, r:0.24*S, fill:col}, g);
+  sv('path', {d:`M${x-0.25*S},${midY-0.3*S} Q${x+0.2*S},${midY-0.2*S} ${x+0.45*S},${midY-0.75*S} L${x-0.15*S},${midY+1.1*S}`, fill:'none', stroke:col, 'stroke-width':0.16*S}, g);
+  if(v <= 0.25){ sv('circle', {cx:x-0.45*S, cy:midY+0.25*S, r:0.24*S, fill:col}, g); }
+  if(v===0.75) dot();
+}
+
+// ---------- reading lessons + note game ----------
+const nn = (midi, name, beats, extra) => Object.assign({midi, name: name || NAMES[((midi%12)+12)%12], beats: beats||1}, extra||{});
+function seq(list, start=0){ let t = start; return list.map(n=>{ const o = Object.assign({abs:t}, n); t += n.beats; return o; }); }
+function playSeq(list, bpm=100){ const c = ac(); if(!c) return; const spb = 60/bpm; list.forEach(n=>tone(n.midi, 0.1 + n.abs*spb, n.beats*spb*0.9, 0.24)); }
+function clickSeq(list, bpm=90){ const c = ac(); if(!c) return; const spb = 60/bpm; list.forEach(n=>{ if(n.midi) tone(n.midi, 0.1 + n.abs*spb, n.beats*spb*0.85, 0.22); }); }
+function fig(r){ const f = el('div','fig staffscroll'); f.appendChild(r.svg); return f; }
+function addText(r, x, y, txt, opts={}){ const t = sv('text', Object.assign({x, y, 'text-anchor':'middle', 'font-size':r.S*1.1, 'font-weight':800, 'font-family':'Nunito, sans-serif', fill:'var(--accent)', stroke:'var(--stage)', 'stroke-width':5, 'paint-order':'stroke', 'stroke-linejoin':'round'}, opts), r.svg); t.textContent = txt; return t; }
+const LESSONS = [
+  {title:'Meet the staff', build(card){
+    card.appendChild(el('p',null,'Music is written on 5 lines called the staff. Notes sit ON a line or IN a space between two lines. Always count from the bottom up.'));
+    const r = renderStaff({staves:[{clef:'treble', notes:[]}], start:0, end:6, noBars:true, autoRests:false, S:16, minWidth:400});
+    const st = r.staves[0];
+    for(let k=0;k<5;k++) addText(r, r.width*0.4, st.y(30+2*k)+0.28*r.S, 'line '+(k+1), {'font-size':r.S*0.8});
+    for(let k=0;k<4;k++) addText(r, r.width*0.75, st.y(31+2*k)+0.3*r.S, 'space '+(k+1), {'font-size':r.S*0.8, fill:'var(--note)'});
+    card.appendChild(fig(r));
+  }},
+  {title:'Two clefs, two hands', build(card){
+    card.appendChild(el('p',null,'The curly treble clef is for your right hand and the higher notes. The bass clef, with its two dots, is for your left hand and the lower notes. Middle C sits on its own little line between them.'));
+    const r = renderStaff({staves:[{clef:'treble', notes:seq([nn(60,'C',4)],0)},{clef:'bass', notes:seq([nn(60,'C',4)],0)}], start:0, end:4, noBars:true, letters:true, S:13, lead:20, minWidth:360});
+    addText(r, r.width-6*r.S, r.staves[0].y(34)+0.4*r.S, 'Right hand', {fill:'var(--note)', 'text-anchor':'start'});
+    addText(r, r.width-6*r.S, r.staves[1].y(22)+0.4*r.S, 'Left hand', {fill:'var(--note-left)', 'text-anchor':'start'});
+    card.appendChild(fig(r));
+    card.appendChild(el('p','muted','Both of these notes are the same key: middle C.'));
+  }},
+  {title:'Notes climb like stairs', build(card){
+    card.appendChild(el('p',null,'Each step up the staff is the next letter: line, space, line, space. The letters only go from A to G. After G, start again at A.'));
+    const list = seq([60,62,64,65,67,69,71,72].map((m,i)=>nn(m,'CDEFGABC'[i],1)));
+    card.appendChild(fig(renderStaff({staves:[{clef:'treble', notes:list}], start:0, end:8, noBars:true, letters:true, S:13})));
+    const b = el('button','btn small','▶ Hear it'); b.type='button'; b.onclick=()=>playSeq(list, 110); card.appendChild(b);
+  }},
+  {title:'Treble clef secrets', build(card){
+    const m1 = el('p','mnemonic'); m1.append('The spaces spell ', el('b',null,'F A C E'), '.'); card.appendChild(m1);
+    const sp = seq([nn(65,'F',2),nn(69,'A',2),nn(72,'C',2),nn(76,'E',2)]);
+    card.appendChild(fig(renderStaff({staves:[{clef:'treble', notes:sp}], start:0, end:8, noBars:true, letters:true, S:13})));
+    const m2 = el('p','mnemonic'); m2.append('The lines: ', el('b',null,'E'),'very ', el('b',null,'G'),'ood ', el('b',null,'B'),'oy ', el('b',null,'D'),'oes ', el('b',null,'F'),'ine.'); card.appendChild(m2);
+    const ln = seq([nn(64,'E',2),nn(67,'G',2),nn(71,'B',2),nn(74,'D',2),nn(77,'F',2)]);
+    card.appendChild(fig(renderStaff({staves:[{clef:'treble', notes:ln}], start:0, end:10, noBars:true, letters:true, S:13})));
+    const row = el('div','row'); row.style.justifyContent='flex-start';
+    const a = el('button','btn small primary','Play the spaces game'); a.type='button'; a.onclick=()=>startGame('l2');
+    const b = el('button','btn small primary','Play the lines game'); b.type='button'; b.onclick=()=>startGame('l3');
+    row.append(a,b); card.appendChild(row);
+  }},
+  {title:'Bass clef secrets', build(card){
+    const m1 = el('p','mnemonic'); m1.append('The spaces: ', el('b',null,'A'),'ll ', el('b',null,'C'),'ows ', el('b',null,'E'),'at ', el('b',null,'G'),'rass.'); card.appendChild(m1);
+    card.appendChild(fig(renderStaff({staves:[{clef:'bass', notes:seq([nn(45,'A',2),nn(48,'C',2),nn(52,'E',2),nn(55,'G',2)])}], start:0, end:8, noBars:true, letters:true, S:13})));
+    const m2 = el('p','mnemonic'); m2.append('The lines: ', el('b',null,'G'),'ood ', el('b',null,'B'),'oys ', el('b',null,'D'),'o ', el('b',null,'F'),'ine ', el('b',null,'A'),'lways.'); card.appendChild(m2);
+    card.appendChild(fig(renderStaff({staves:[{clef:'bass', notes:seq([nn(43,'G',2),nn(47,'B',2),nn(50,'D',2),nn(53,'F',2),nn(57,'A',2)])}], start:0, end:10, noBars:true, letters:true, S:13})));
+    const b = el('button','btn small primary','Play the bass clef game'); b.type='button'; b.onclick=()=>startGame('l5'); card.appendChild(b);
+  }},
+  {title:'How long is each note?', build(card){
+    card.appendChild(el('p',null,'The shape of a note tells you how many beats to hold it. Count the beats out loud: 1, 2, 3, 4.'));
+    const L = (t)=>({lyric:t});
+    const list = seq([nn(71,'B',4,L('4 beats')), nn(71,'B',2,L('2 beats')), nn(71,'B',2,L('2 beats')), nn(71,'B',1,L('1')), nn(71,'B',1,L('1')), nn(71,'B',1,L('1')), nn(71,'B',1,L('1')), nn(71,'B',0.5,L('½')), nn(71,'B',0.5,L('½')), nn(71,'B',0.5,L('½')), nn(71,'B',0.5,L('½')), nn(71,'B',2,L('2 beats')), nn(71,'B',3,L('3 beats')), nn(71,'B',1,L('1')), nn(71,'B',1.5,L('1½')), nn(71,'B',0.5,L('½')), nn(71,'B',2,L('2 beats'))]);
+    card.appendChild(fig(renderStaff({staves:[{clef:'treble', notes:list}], start:0, end:24, bpb:4, lyrics:true, S:11, gapBase:1.8})));
+    const ul = el('ul','steps');
+    [['Whole note','hollow, no stem: 4 beats'],['Half note','hollow with a stem: 2 beats'],['Quarter note','filled in: 1 beat'],['Eighth note','filled with a flag: half a beat (two fit in one beat)'],['A dot','adds half as much again: a dotted half note is 3 beats']].forEach(([a,b])=>{ const li = el('li'); li.append(el('b',null,a+': '), b); ul.appendChild(li); });
+    card.appendChild(ul);
+    const b = el('button','btn small','▶ Hear it'); b.type='button'; b.onclick=()=>clickSeq(list, 96); card.appendChild(b);
+    card.appendChild(el('p',null,'Rests are the quiet beats. They have shapes too:'));
+    const rr = renderStaff({staves:[{clef:'treble', notes:[], rests:[{abs:0,beats:4},{abs:4,beats:2},{abs:6,beats:1},{abs:7,beats:0.5}]}], start:0, end:7.5, noBars:true, S:12});
+    const st = rr.staves[0]; [['4',0],['2',4],['1',6],['½',7]].forEach(([t,a])=>addText(rr, rr.pos[a], st.y(18)+0.4*rr.S, t+(t==='½'?'':' beat'+(t==='1'?'':'s')), {fill:'var(--muted)','font-size':rr.S}));
+    card.appendChild(fig(rr));
+  }},
+  {title:'Sharps and flats', build(card){
+    card.appendChild(el('p',null,'A sharp ♯ means play the black key just to the RIGHT (one step higher). A flat ♭ means play the black key just to the LEFT (one step lower). F♯ and G♭ are the same black key.'));
+    const list = seq([nn(65,'F',2), nn(66,'F♯',2), nn(71,'B',2), nn(70,'B♭',2)]);
+    card.appendChild(fig(renderStaff({staves:[{clef:'treble', notes:list}], start:0, end:8, noBars:true, letters:true, S:13})));
+    const row = el('div','row'); row.style.justifyContent='flex-start';
+    const b = el('button','btn small','▶ Hear it'); b.type='button'; b.onclick=()=>playSeq(list, 90);
+    const g = el('button','btn small primary','Play the sharps and flats game'); g.type='button'; g.onclick=()=>startGame('l6');
+    row.append(b,g); card.appendChild(row);
+  }},
+  {title:'Bars and time signatures', build(card){
+    card.appendChild(el('p',null,'Bar lines cut music into boxes called bars. The two numbers at the start tell you how many beats go in each box. 4/4 means count 1-2-3-4 in every bar.'));
+    const L = t=>({lyric:t});
+    const four = seq([1,2,3,4,1,2,3,4].map(i=>nn(i===1?67:64, i===1?'G':'E', 1, L(String(i)))));
+    card.appendChild(fig(renderStaff({staves:[{clef:'treble', notes:four}], start:0, end:8, bpb:4, timeSig:'4/4', lyrics:true, S:12})));
+    card.appendChild(el('p',null,'3/4 means 1-2-3 in every bar, like Happy Birthday and We Wish You a Merry Christmas. The hippo song is in 6/8: a bouncy 1-2-3-4-5-6.'));
+    const three = seq([1,2,3,1,2,3].map(i=>nn(i===1?67:64, i===1?'G':'E', 1, L(String(i)))));
+    card.appendChild(fig(renderStaff({staves:[{clef:'treble', notes:three}], start:0, end:6, bpb:3, timeSig:'3/4', lyrics:true, S:12})));
+    const row = el('div','row'); row.style.justifyContent='flex-start';
+    const a = el('button','btn small','▶ Hear 4/4'); a.type='button'; a.onclick=()=>clickSeq(four, 100);
+    const b = el('button','btn small','▶ Hear 3/4'); b.type='button'; b.onclick=()=>clickSeq(three, 100);
+    row.append(a,b); card.appendChild(row);
+  }}
+];
+const WHITE_IN = (lo,hi) => { const o=[]; for(let m=lo;m<=hi;m++) if(!isBlack(m)) o.push(m); return o; };
+const LEVELS = [
+  {id:'l1', name:'Middle C to G', clef:'treble', pool:[60,62,64,65,67], range:[60,84]},
+  {id:'l2', name:'Spaces: F A C E', clef:'treble', pool:[65,69,72,76], range:[60,84]},
+  {id:'l3', name:'Lines: E G B D F', clef:'treble', pool:[64,67,71,74,77], range:[60,84]},
+  {id:'l4', name:'All of treble', clef:'treble', pool:WHITE_IN(60,79), range:[60,84]},
+  {id:'l5', name:'Bass clef', clef:'bass', pool:WHITE_IN(43,60), range:[36,60]},
+  {id:'l6', name:'Sharps and flats', clef:'treble', pool:[61,63,66,68,70,73,75], range:[60,84], spelled:true},
+  {id:'l7', name:'Both clefs', clef:'grand', pool:WHITE_IN(43,79), range:[36,84]}
+];
+const ROUND = 10;
+let G = null;
+function readStars(p){ const r = (p.best||{}).reading||{}; return Object.values(r).reduce((t,v)=>t+(v.step||0),0); }
+function openRead(tab){
+  ac(); stopAll && P && stopAll();
+  $('#kbdSlotRead').appendChild($('#kbdWrap'));
+  const p = player(); const w = $('#rWho'); w.textContent=''; w.append(el('span',null,p.animal), el('span',null,p.name));
+  buildLessons(); screens('Read'); showTab(tab||'lessons');
+}
+function showTab(tab){
+  document.querySelectorAll('#readTabs button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.tab===tab));
+  $('#lessonsView').hidden = tab!=='lessons'; $('#gameView').hidden = tab!=='game';
+  if(tab==='game' && !G) startGame('l1');
+}
+$('#readTabs').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b) showTab(b.dataset.tab); });
+$('#openRead').onclick = ()=>openRead('lessons');
+$('#backFromRead').onclick = ()=>{ G = null; setTargets([]); showSongs(); };
+function buildLessons(){
+  const box = $('#lessonsView'); if(box.childElementCount) return;
+  LESSONS.forEach((L,i)=>{ const c = el('article','card lesson'); c.append(el('span','num','Lesson '+(i+1)), el('h3',null,L.title)); L.build(c); box.appendChild(c); });
+}
+function buildLevelSeg(){
+  const seg = $('#levelSeg'); seg.textContent=''; const p = player(); const r = (p.best||{}).reading||{};
+  LEVELS.forEach((L,i)=>{ const b = el('button',null,(i+1)+'. '+L.name); b.type='button'; b.dataset.lvl=L.id; b.setAttribute('aria-pressed', G && G.lvl.id===L.id);
+    const st = (r[L.id]||{}).step||0; if(st) b.appendChild(el('span','lvlstars','★'.repeat(st))); seg.appendChild(b); });
+}
+$('#levelSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(b) startGame(b.dataset.lvl); });
+$('#gameRestart').onclick = ()=>startGame(G ? G.lvl.id : 'l1');
+$('#gameHint').onclick = ()=>{ if(!G || !G.q) return; G.hinted = true; gameMsg(hintFor(G.q), 'muted'); };
+function startGame(id){
+  if(current!=='Read'){ openRead('game'); }
+  const lvl = LEVELS.find(l=>l.id===id) || LEVELS[0];
+  G = {lvl, n:0, mistakes:0, results:[], q:null, wrong:0, last:null};
+  buildKeyboard(lvl.range[0], lvl.range[1]); setTargets([]);
+  showTab('game'); buildLevelSeg(); nextQ();
+}
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function nextQ(){
+  if(G.n >= ROUND){ finishGame(); return; }
+  let m; do { m = pick(G.lvl.pool); } while(G.lvl.pool.length>1 && m===G.last);
+  G.last = m;
+  let name = NAMES[m%12];
+  if(G.lvl.spelled){ const FL = {1:'D♭',3:'E♭',6:'G♭',8:'A♭',10:'B♭'}; name = Math.random()<0.5 ? name.replace('#','♯') : FL[m%12]; }
+  G.q = {midi:m, name, state:''}; G.wrong = 0; G.hinted = false;
+  drawQ(); dots(); gameMsg('Which key is this note? Play it!', '');
+}
+function qStaves(state){
+  const n = Object.assign({abs:0, beats:4, hand:'R', state}, G.q);
+  const clef = G.lvl.clef==='grand' ? null : G.lvl.clef;
+  if(clef) return [{clef, notes:[n]}];
+  return [{clef:'treble', notes: G.q.midi>=60?[n]:[]},{clef:'bass', notes: G.q.midi<60?[n]:[]}];
+}
+function drawQ(state=''){
+  const box = $('#gameStaff'); box.textContent='';
+  const r = renderStaff({staves:qStaves(state), start:0, end:4, noBars:true, autoRests:false, S:17, gapBase:5, lead:34});
+  box.appendChild(r.svg);
+}
+function dots(){ const d = $('#gameDots'); d.textContent=''; for(let i=0;i<ROUND;i++){ d.appendChild(el('span', G.results[i]==='ok'?'ok':G.results[i]==='miss'?'miss':i===G.n?'cur':'')); } }
+function gameMsg(t, cls){ const m = $('#gameMsg'); m.textContent = t; m.className = 'helper ' + (cls||''); }
+function where(q){
+  const clef = G.lvl.clef==='grand' ? (q.midi>=60?'treble':'bass') : G.lvl.clef;
+  const cf = CLEF[clef], d = diat(q.midi, q.name), k = d - cf.bottom;
+  if(clef==='treble' && d===28) return 'middle C, on its own little line below the staff';
+  if(clef==='bass' && d===28) return 'middle C, on its own little line above the staff';
+  if(k===-1) return 'just below the bottom line';
+  if(k<-1) return 'below the staff, on little extra lines';
+  if(k===9) return 'just above the top line';
+  if(k>9) return 'above the staff, on little extra lines';
+  return k%2===0 ? 'on line '+(k/2+1)+' (counting from the bottom)' : 'in space '+((k+1)/2)+' (counting from the bottom)';
+}
+function hintFor(q){
+  const clef = G.lvl.clef==='grand' ? (q.midi>=60?'treble':'bass') : G.lvl.clef;
+  const tip = clef==='treble' ? 'Treble lines: Every Good Boy Does Fine. Spaces: F A C E.' : 'Bass lines: Good Boys Do Fine Always. Spaces: All Cows Eat Grass.';
+  const acc = q.name.includes('♯') ? ' The ♯ means the black key just to the right.' : q.name.includes('♭') ? ' The ♭ means the black key just to the left.' : '';
+  return 'This note is '+where(q)+'. '+tip+acc;
+}
+function readInput(m){
+  if(!G || !G.q || G.busy) return;
+  if(matches(m, G.q.midi)){
+    flashKey(keyMap.has(m)?m:G.q.midi,'good'); setTargets([]);
+    G.results[G.n] = G.wrong ? 'miss' : 'ok'; G.busy = true;
+    drawQ('done'); gameMsg('Yes! That’s '+G.q.name+', '+where(G.q)+'.', '');
+    setTimeout(()=>{ G.busy = false; G.n++; nextQ(); }, 1100);
+  } else {
+    G.mistakes++; G.wrong++; flashKey(m,'bad');
+    if(G.wrong===1) gameMsg('Not quite. Is it on a line or in a space? Try again!', '');
+    else { gameMsg('It’s '+G.q.name+', '+where(G.q)+'. Press the glowing key.', ''); setTargets([G.q.midi]); }
+  }
+}
+function finishGame(){
+  const mis = G.mistakes, stars = mis<=1 ? 3 : mis<=3 ? 2 : 1;
+  const p = player(); p.best.reading = p.best.reading || {};
+  const cur = p.best.reading[G.lvl.id] || {}; if((cur.step||0) < stars){ cur.step = stars; p.best.reading[G.lvl.id] = cur; save(); }
+  const idx = LEVELS.indexOf(G.lvl), next = LEVELS[idx+1];
+  const btns = [{label:'↺ Again', fn:()=>startGame(G.lvl.id)}];
+  if(next) btns.push({label:'Level '+(idx+2)+' →', cls:'primary', fn:()=>startGame(next.id)});
+  btns.push({label:'Lessons', cls:'ghost', fn:()=>{ G=null; showTab('lessons'); }});
+  buildLevelSeg();
+  showOverlay(stars, stars===3?'Super reader!':stars===2?'Great reading!':'Good practice!', `${ROUND-G.results.filter(r=>r==='miss').length} of ${ROUND} right on the first try.`, btns);
+}
 
 // ---------- players screen ----------
 let pickAnimal = ANIMALS[0];
@@ -885,6 +1314,7 @@ $('#cancelNew').onclick = ()=>{ $('#addForm').hidden=true; };
 // ---------- songs screen ----------
 function showSongs(){
   const p = player(); if(!p){ showPlayers(); return; }
+  $('#readStars').textContent = '★ '+readStars(p);
   $('#meAvatar').textContent = p.animal; $('#meName').textContent = p.name; $('#meStars').textContent = totalStars(p);
   const grid = $('#songGrid'); grid.textContent='';
   songList().forEach(s=>{
